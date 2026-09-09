@@ -100,6 +100,8 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 ## 公開版と社内版の違い
 
 - 検収ログへの書き戻し（`verify_log.py`）、受け手の人物知見の参照・更新（`brain_writeback.py`）の実装は社内リポジトリ側にあり、本公開版には含めない。判定手順（V1〜V4）とH1〜H8のチェックリストはそのまま収録している
+- 社内では制作中の機械検査（DOM契約・スクリーンショット・レイアウト互換性の検査）を生成側スキルの専用ステップとして持たせ、`verify` は納品前の検収に専念させている。その生成側スキルの実装は本公開版には含めない
+- consulting-pptx-skill（`gozen3ji/consulting-pptx-skill`、MIT）との突合結果をまとめた対応表は、社内の意思決定文脈に依存する記述が多いため非収録。突合で追加した項目自体は `house-rules.md`・`document-tone-rules.md` にそのまま反映済み
 - SEOコラムの `outline.md`（進行管理表）、`link-matrix.md`（内部リンク表）、`primary-sources.md`（一次情報バンク）は案件固有の内容が濃いテーブルのため非収録。ファイルの役割は `skills/seo-column/SKILL.md` に一文で残している
 - クライアント企業名・個人名は、実在の固有名詞から汎化した表現（「製造業A社」「レビュー担当者」等）に置き換えている。ルールの判定ロジック・ID・辞書・閾値・沿革の構造は変更していない
 
