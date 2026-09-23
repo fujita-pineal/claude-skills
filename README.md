@@ -119,3 +119,7 @@ MIT License。詳細は `LICENSE` を参照。
 ## 出典
 
 株式会社ピネアル CTO 藤田拳が、コーポレートサイト（https://pineal.co.jp/column/）の執筆に使用しているスキルの公開版。
+
+### gemini-rewrite（Gemini 書き換え）
+
+書き手を Gemini、校閲を Claude に分ける。記事モードは h2 節ごとに「Gemini 書き換え → 機械チェック + 意味照合 → 指摘を戻して再書き換え」を最大3周回し、`final.md` を出す。意味照合は実害のある差だけを指摘する緩い設定にしてある。厳しくすると原文に引き戻されて文体が変わらない。詳細は `skills/gemini-rewrite/SKILL.md`。
