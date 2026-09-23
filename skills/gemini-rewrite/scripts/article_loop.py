@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Markdown 記事の本文を h2 節ごとに Gemini で書き換え、Claude(sonnet) が原文と意味照合し、
 指摘を Gemini に戻して再書き換えする。指摘ゼロか --rounds 到達で確定。
-usage: article_loop.py <article.md> <outdir> [--rounds 3] [--sections 2,3] [--model gemini-3.8-flash]
+usage: article_loop.py <article.md> <outdir> [--rounds 3] [--sections 2,3] [--model gemini-3.8-flash] [--tone standard|casual]
+--tone casual: 原文ベースの最小書き換えで、ほんの少しだけくだけさせる(SNS長文記事・個人ブログ向け)。frontmatter は任意。
 出力: <outdir>/final.md(frontmatter込み)、s{NN}-r{N}.md、s{NN}-r{N}-issues.json、log.json
 環境変数: GEMINI_API_KEY(必須)、GEMINI_REWRITE_MODEL、REWRITE_CHECKER_CMD(校閲コマンド。既定は claude CLI)。"""
 import argparse, json, os, re, subprocess, sys, urllib.request, pathlib, time
@@ -17,9 +18,22 @@ GEMINI_SYS = """あなたは日本語の技術記事の編集者です。以下�
 - 「非常に」「極めて」「大幅に」「飛躍的に」「格段に」「様々な」「ソリューション」「寄り添う」「伴走」「と言えるでしょう」「ではないでしょうか」「〜していきたいと思います」「ぜひ」は使わない
 - AIが「学習する」「賢くなる」「理解する」のような擬人化をしない。観測できる事実の表現にする
 - 読者の感情を決めつけない(「驚くはず」「安心」など)
-- 一文はおおむね60字以内。一文一義。硬い名詞句の連結(「〜の最適化の実現」など)は動詞にほどく
-- 原文の語彙や文型に引きずられない。同じ事実と結論を、自分の言葉で書き直す。文の分割や結合、語順の入れ替えはしてよい
+{tone}
 - 出力は書き直した Markdown のみ。前置き・説明・コードフェンスで全体を囲むことをしない"""
+
+TONES = {
+    # 既定: 硬めの技術記事向け。原文から離れて書き直すため、くだけた原文は丁寧・硬い方向へ寄る
+    "standard": """- 一文はおおむね60字以内。一文一義。硬い名詞句の連結(「〜の最適化の実現」など)は動詞にほどく
+- 原文の語彙や文型に引きずられない。同じ事実と結論を、自分の言葉で書き直す。文の分割や結合、語順の入れ替えはしてよい""",
+    # casual: 原文ベースの最小書き換え。standard の「引きずられない」を外さないと常体混じりが丁寧体へ戻される
+    "casual": """- 硬い名詞句の連結(「〜の最適化の実現」など)は動詞にほどく
+- 原文の文をベースにする。書き直しは最小限で、語尾・接続・言い回しを少し崩す程度にとどめる
+- 口調: 原文より「ほんの少しだけ」カジュアルにする。書き手が自分の体験を知人に話す個人ブログの温度感
+  - 原文より丁寧・硬い方向への書き換えは禁止。「作ってません」「うまくいかない」「はまった」「〜なる。」のような常体混じり・くだけた表現は、そのまま残す(「作っていません」「うまくいきません」に直さない)
+  - 「自分」を「私」に変えない。「で、」「なので」「わりと」「ざっくり」などの口語もそのまま残す
+  - そのうえで、1段落に0〜1か所だけ、語尾や接続をもう一段くだけさせる(例: 「〜です」→「〜なんです」「〜なんですよね」、「〜しました」→「〜してみました」、軽い「正直」「ちょっと」「けっこう」)
+  - 事実や程度の主張は変えない。タメ口の連発、ネットスラング、「w」、感嘆符、絵文字は使わない""",
+}
 
 CHECK_SYS = """あなたは技術記事の校閲者です。原文と書き換え後を段落単位で突き合わせ、次の「実害のある」問題だけを列挙してください。
 1. 意味の反転・条件や限定の消失・因果の入れ替わり(読者が原文と異なる事実や結論を受け取る箇所)
@@ -113,13 +127,15 @@ def main():
     ap.add_argument("--sections", default="")
     ap.add_argument("--model", default=os.environ.get("GEMINI_REWRITE_MODEL", "gemini-3.8-flash"))
     ap.add_argument("--banned", default="", help="禁止語リスト(JSON配列ファイル)。既定はスクリプト内の BANNED")
+    ap.add_argument("--tone", choices=sorted(TONES), default="standard")
     a = ap.parse_args()
+    sys_prompt = GEMINI_SYS.replace("{tone}", TONES[a.tone])
     if a.banned:
         BANNED[:] = json.load(open(a.banned))
     out = pathlib.Path(a.outdir); out.mkdir(parents=True, exist_ok=True)
     text = open(a.article).read()
     m = re.match(r"^---\n[\s\S]*?\n---\n", text)
-    fm, body = m.group(0), text[m.end():]
+    fm, body = (m.group(0), text[m.end():]) if m else ("", text)
     secs = split_sections(body)
     targets = [int(x) for x in a.sections.split(",")] if a.sections else list(range(len(secs)))
     final = list(secs)
@@ -129,7 +145,7 @@ def main():
         if len(orig.strip()) < 80:
             continue
         (out / f"s{i:02d}-r0-orig.md").write_text(orig)
-        prompt = GEMINI_SYS + "\n\n=== 節 ===\n" + orig
+        prompt = sys_prompt + "\n\n=== 節 ===\n" + orig
         cur, issues = None, []
         for r in range(1, a.rounds + 1):
             cur = gemini(prompt, a.model)
@@ -142,13 +158,14 @@ def main():
             if not issues:
                 break
             fb = "\n".join(f"- [{x.get('kind')}] {x.get('note','')} / 原文: {x.get('original','')[:120]} / 書き換え: {x.get('rewritten','')[:120]}" for x in issues)
-            prompt = (GEMINI_SYS + "\n\n=== 節(原文) ===\n" + orig + "\n\n=== 前回の書き換え ===\n" + cur
+            prompt = (sys_prompt + "\n\n=== 節(原文) ===\n" + orig + "\n\n=== 前回の書き換え ===\n" + cur
                       + "\n\n=== 校閲者の指摘(すべて直すこと。原文の意味と情報量に戻す) ===\n" + fb
                       + "\n\n指摘を直した書き換え版を出力してください。")
         final[i] = cur
         (out / f"s{i:02d}-final.md").write_text(cur)
         (out / f"s{i:02d}-final-issues.json").write_text(json.dumps(issues, ensure_ascii=False, indent=1))
-    (out / "final.md").write_text(fm + "\n".join(final))
+    # Gemini は節末の空行を落とすため、次節の見出しが前段落に貼り付かないよう空行で連結する
+    (out / "final.md").write_text(fm + "\n\n".join(x.rstrip("\n") for x in final) + "\n")
     (out / "log.json").write_text(json.dumps(log, ensure_ascii=False, indent=1))
 
 
