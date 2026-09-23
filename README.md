@@ -5,11 +5,12 @@
 株式会社ピネアルが Claude Code の運用で使っている検収・文章規範・SEOコラム量産のスキル一式の公開版。
 コーポレートサイト（https://pineal.co.jp/column/）のコラム記事の執筆に実際に使っているルールと手順を、社内固有の情報を取り除いて公開している。
 
-収録範囲は次の3スキルと、その土台になっている文体ルールのファイル1本。
+収録範囲は次の4スキルと、その土台になっている文体ルールのファイル1本。
 
 - 検収（verify）: 生成物を意図・形式・事実・受け手の4層でチェックする手順
 - 日本語技術文章（japanese-tech-writing）: 技術文書・記事の文章規範と機械チェック
 - SEOコラム量産（seo-column）: 記事の設計から執筆・図版・機械チェック・公開までのパイプライン
+- Gemini 書き換え（gemini-rewrite）: Gemini が書き、Claude が原文と意味照合して指摘を戻すループで、記事の文体を人が書いたものへ寄せる
 
 ## 収録内容
 
@@ -24,6 +25,9 @@
 | `skills/seo-column/SKILL.md` | SEOコラム量産パイプラインの実行手順 | 新規記事執筆・図版追加・humanizeリライト時に読む |
 | `skills/seo-column/docs/` | パイプライン定義・文体ガイド・図版設計・humanize適応表・DLサンプル制作の各正本 | `SKILL.md` から参照される |
 | `skills/seo-column/scripts/` | frontmatter・文字数・リンク・禁止表現の機械チェック一式 | `python3 check-column.py` 等 |
+| `skills/gemini-rewrite/SKILL.md` | Gemini 書き換えの手順（平文モード・記事モード） | 「geminiで書き直して」「geminiループ回して」で読む |
+| `skills/gemini-rewrite/scripts/gemini_rewrite.py` | 平文1本を Gemini に書き直させる | `printf '%s' "$DRAFT" \| python3 gemini_rewrite.py --brief "..."` |
+| `skills/gemini-rewrite/scripts/article_loop.py` | Markdown 記事を節ごとに書き換え、校閲モデルの指摘を戻すループ | `python3 article_loop.py <article.md> <outdir> --rounds 3` |
 
 ## インストール方法
 
@@ -34,6 +38,7 @@ mkdir -p ~/.claude/skills ~/.claude/rules
 ln -s /path/to/claude-skills/skills/verify ~/.claude/skills/verify
 ln -s /path/to/claude-skills/skills/japanese-tech-writing ~/.claude/skills/japanese-tech-writing
 ln -s /path/to/claude-skills/skills/seo-column ~/.claude/skills/seo-column
+ln -s /path/to/claude-skills/skills/gemini-rewrite ~/.claude/skills/gemini-rewrite
 ln -s /path/to/claude-skills/rules/document-tone-rules.md ~/.claude/rules/document-tone-rules.md
 ```
 

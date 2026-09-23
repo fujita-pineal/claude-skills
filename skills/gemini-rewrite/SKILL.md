@@ -1,0 +1,42 @@
+---
+name: gemini-rewrite
+description: 文章を Gemini(既定 gemini-3.8-flash)に自然な日本語へ書き直させる。平文モード(メール・チャット返信)と記事モード(Markdown記事を節ごとに書き換え、別のモデルが原文と意味照合して指摘を戻すループ)。「geminiで書き直して」「geminiループ回して」と言われたら使う
+---
+
+# gemini-rewrite
+
+Claude が内容を固めたものを、Gemini に人間らしい日本語へ書き直させる。判断や事実の追加は Gemini に任せない。
+
+書き手モデルと校閲モデルを分けるのが要点。同じモデルに書かせて同じモデルに直させると、自分の文体を自分で許してしまう。別のモデルが書き、元のモデルが原文との差だけを見る方が、文体は変わり意味は残る。
+
+## 平文モード(メール・チャット返信)
+
+1. Claude 側で内容(伝える順序、判断、要望)を確定した下書きを作る
+2. 実行
+   ```
+   printf '%s' "$DRAFT" | python3 scripts/gemini_rewrite.py --persona "〇〇社のCTO" --brief "宛先は〇〇さん、8行以内、口調はやわらかめ"
+   ```
+3. 出力を文体ルール(`rules/document-tone-rules.md` の R5)で目視確認し、直した語があれば1行で報告する
+4. ユーザーにはコードブロックで本文だけ出す
+
+## 記事モード(Markdown 記事のループ書き換え)
+
+執筆済みの Markdown 記事を、意味を変えずに「人が書いた自然な文」へ寄せる。
+
+```
+python3 scripts/article_loop.py content/foo.md /tmp/out --rounds 3
+```
+
+- 仕組み: frontmatter を外し、コードフェンス外の h2 で節に分割。節ごとに Gemini 書き換え → 機械チェック + 校閲モデルの意味照合 → 指摘を Gemini に戻して再書き換え。指摘ゼロか rounds 到達で確定
+- 機械チェック: 見出し・コード・表・画像行・HTMLコメントの完全一致、数値とリンクURLの多重集合一致、禁止語、文字数 ±25%
+- 意味照合は「実害のある問題だけ」を指摘する緩い設定にしてある。語彙や語尾の差まで指摘させると原文へ引き戻され、書き換えの効果がほぼ消える(実測: 厳しい設定で差分131行、緩い設定で186行。残指摘は厳しい設定の方が多かった)
+- `--sections 2,3` で節番号を絞れる(0 は導入)。`--banned words.json` で禁止語を差し替え。`--model` / `GEMINI_REWRITE_MODEL` でモデル変更
+- 校閲コマンドは `REWRITE_CHECKER_CMD` で差し替え可能。stdin にプロンプトを受け取り、`{"issues":[...]}` の JSON を stdout に返せば何でもよい。既定は `claude -p --model sonnet`
+- 出力: `<outdir>/final.md` が完成形。`s{NN}-r{N}-issues.json` で残った指摘を確認する
+- 適用は人(または Claude)が行う。`final.md` と原文の diff を見て、残指摘のある節は原文に戻すか手で直す。導入や連載案内など守りたい段落は適用時に元へ戻す
+- 記事側の機械チェック(リンク、frontmatter、レビューゲート等)は適用後に通す
+
+## 前提
+
+- `GEMINI_API_KEY` を環境変数に入れておく。依存ライブラリなし(標準ライブラリで REST を叩く)
+- 記事モードの既定の校閲は `claude` CLI を使うため、Claude Code が動く環境が必要。`REWRITE_CHECKER_CMD` で別の校閲に差し替えられる
