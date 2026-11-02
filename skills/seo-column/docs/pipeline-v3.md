@@ -17,7 +17,7 @@ v2は「書いてから図を足す」構造だったため、図が本文の装
 | 2 | 素材調達(スクショ・画像) | haiku(並列部隊) | ブリーフの素材オーダー | `content/images/column/{slug}/` + 素材台帳 |
 | 3 | 初稿執筆 | sonnet | ブリーフ | `content/column/{slug}.md`(図版はプレースホルダ) |
 | 4 | **図版生成** | **opus** | ブリーフの図版計画 + 素材 | SVG/drawio + 本文への埋め込み |
-| 5 | humanizeリライト | sonnet | `humanize-column.md` | リライト版本文 |
+| 5 | humanizeリライトと仕上げ | sonnet | `humanize-column.md` | リライト版本文 |
 | 6 | 機械チェック | Python | `scripts/check-column.py` | OK/NG |
 | 7 | レビュー担当者レビュー → マージ | レビュー担当者 | PR | 公開キュー入り |
 | 8 | 自動公開 | GitHub Actions | publishedDateフィルタ | 公開(v2から変更なし) |
@@ -204,6 +204,7 @@ scripts/drawio-export.sh {slug} N
 v2から変更なし。
 
 - Stage 5 humanize(sonnet): `humanize-column.md` の適応仕様。**図の埋め込み行とキャプションは書き換え対象外**
+  - 仕上げは `humanize-column.md` の「Stage 5 の仕上げ」(2026-11-02 追加)。`humanizer-pass` を2周当て、差分検査のあとで採否を決める
 - Stage 6 機械チェック: `scripts/check-column.py`。v3で追加する検査項目は下記
 - Stage 7 レビュー担当者レビュー: PR単位。観点は内容の正誤と、会社として言ってよいか
 - Stage 8 自動公開: `publishedDate` フィルタ + `daily-publish.yml`。**公開日到来時にリンクパッチの要否を確認する**(下記)
