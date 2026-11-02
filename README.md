@@ -5,12 +5,13 @@
 株式会社ピネアルが Claude Code の運用で使っている検収・文章規範・SEOコラム量産のスキル一式の公開版。
 コーポレートサイト（https://pineal.co.jp/column/）のコラム記事の執筆に実際に使っているルールと手順を、社内固有の情報を取り除いて公開している。
 
-収録範囲は次の4スキルと、その土台になっている文体ルールのファイル1本。
+収録範囲は次の5スキルと、その土台になっている文体ルールのファイル1本。
 
 - 検収（verify）: 生成物を意図・形式・事実・受け手の4層でチェックする手順
 - 日本語技術文章（japanese-tech-writing）: 技術文書・記事の文章規範と機械チェック
 - SEOコラム量産（seo-column）: 記事の設計から執筆・図版・機械チェック・公開までのパイプライン
 - Gemini 書き換え（gemini-rewrite）: Gemini が書き、Claude が原文と意味照合して指摘を戻すループで、記事の文体を人が書いたものへ寄せる
+- 公開前の仕上げ（humanizer-pass）: 公開されている日本語の推敲ルールを実行時に取得して2周当て、差分検査のあとで採否を決める
 
 ## 収録内容
 
@@ -28,6 +29,9 @@
 | `skills/gemini-rewrite/SKILL.md` | Gemini 書き換えの手順（平文モード・記事モード） | 「geminiで書き直して」「geminiループ回して」で読む |
 | `skills/gemini-rewrite/scripts/gemini_rewrite.py` | 平文1本を Gemini に書き直させる | `printf '%s' "$DRAFT" \| python3 gemini_rewrite.py --brief "..."` |
 | `skills/gemini-rewrite/scripts/article_loop.py` | Markdown 記事を節ごとに書き換え、校閲モデルの指摘を戻すループ | `python3 article_loop.py <article.md> <outdir> --rounds 3` |
+| `skills/humanizer-pass/SKILL.md` | 公開前の推敲の手順と subagent への指示 | 「humanizer」「推敲ルールを当てて」で読む |
+| `skills/humanizer-pass/scripts/fetch-rules.sh` | 推敲ルールの取得と版の照合 | `bash fetch-rules.sh <保存先>` |
+| `skills/humanizer-pass/scripts/guard.py` | 推敲の前後で、変えてはいけない部分の変更を検出する | `python3 guard.py <前の版> <後の版> --protect-after "<CTA の冒頭文>"` |
 
 ## インストール方法
 
@@ -39,6 +43,7 @@ ln -s /path/to/claude-skills/skills/verify ~/.claude/skills/verify
 ln -s /path/to/claude-skills/skills/japanese-tech-writing ~/.claude/skills/japanese-tech-writing
 ln -s /path/to/claude-skills/skills/seo-column ~/.claude/skills/seo-column
 ln -s /path/to/claude-skills/skills/gemini-rewrite ~/.claude/skills/gemini-rewrite
+ln -s /path/to/claude-skills/skills/humanizer-pass ~/.claude/skills/humanizer-pass
 ln -s /path/to/claude-skills/rules/document-tone-rules.md ~/.claude/rules/document-tone-rules.md
 ```
 
@@ -85,7 +90,7 @@ Stage0からStage8までのパイプラインで記事を作る。
 | 2 | 素材調達（スクショ・画像） | 画像 + 素材台帳 |
 | 3 | 初稿執筆（図版はプレースホルダ） | 本文 |
 | 4 | 図版生成（SVG直書き / drawio） | SVG + 本文への埋め込み |
-| 5 | humanizeリライト | リライト版本文 |
+| 5 | humanizeリライトと仕上げ（humanizer-pass） | リライト版本文 |
 | 6 | 機械チェック | OK/NG |
 | 7 | レビュー担当者レビュー | PRマージ |
 | 8 | 自動公開 | 公開 |
@@ -102,6 +107,18 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 
 `check-column.py` の `FORBIDDEN` / `FORBIDDEN_WORD` はサンプル値。自分の運用に合わせて、既公開記事に無い実在クライアント名や引用禁止の架空企業名に置き換えて使う。
 
+### humanizer-pass（公開前の仕上げ）
+
+推敲ルール（https://imoz.jp/humanizer.ja.txt）を実行時に取得し、sha256 で確認済みの版と照合してから使う。
+
+1. 1周目: subagent がルールの確認項目を地の文の全段落へ当て、部分修正する
+2. 2周目: 別の subagent が通読し、悪化した変更や改善を説明できない変更を戻す
+3. 採否: 親が最初の版との差分を全部読み、採用する変更を決める
+
+`guard.py` は数値、リンク、見出し、図、表、CTA の変更を検出する。主張の強さ、帰属、留保の変化は検出しないので、この3点は親が読む。
+
+この2周の手順は、コラム1本へ3周当てた実測から組み直したもので、2周の順序での通し実行はまだしていない。詳細は `skills/humanizer-pass/SKILL.md`。
+
 ## 公開版と社内版の違い
 
 - 検収ログへの書き戻し（`verify_log.py`）、受け手の人物知見の参照・更新（`brain_writeback.py`）の実装は社内リポジトリ側にあり、本公開版には含めない。判定手順（V1〜V4）とH1〜H8のチェックリストはそのまま収録している
@@ -109,12 +126,15 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 - consulting-pptx-skill（`gozen3ji/consulting-pptx-skill`、MIT）との突合結果をまとめた対応表は、社内の意思決定文脈に依存する記述が多いため非収録。突合で追加した項目自体は `house-rules.md`・`document-tone-rules.md` にそのまま反映済み
 - SEOコラムの `outline.md`（進行管理表）、`link-matrix.md`（内部リンク表）、`primary-sources.md`（一次情報バンク）は案件固有の内容が濃いテーブルのため非収録。ファイルの役割は `skills/seo-column/SKILL.md` に一文で残している
 - クライアント企業名・個人名は、実在の固有名詞から汎化した表現（「製造業A社」「レビュー担当者」等）に置き換えている。ルールの判定ロジック・ID・辞書・閾値・沿革の構造は変更していない
+- `humanizer-pass` が使う推敲ルールの本文は、配布元にライセンスの記載がないので収録していない。実行時に配布元から取得する
 
 ## ライセンス
 
 MIT License。詳細は `LICENSE` を参照。
 
 `skills/japanese-tech-writing/scripts/` の一部ファイルは coji/natural-japanese（v1.5.0、MIT License）を無改変で含む。取り込み範囲とバージョンは `skills/japanese-tech-writing/scripts/UPSTREAM.md` を参照。
+
+`skills/humanizer-pass` が実行時に取得する推敲ルールは、本リポジトリの MIT License の対象ではない。
 
 ## 出典
 

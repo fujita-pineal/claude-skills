@@ -45,10 +45,12 @@ description: pineal-corp-site の SEOコラム(content/column/*.md)を量産・�
 | 2 | 素材調達(スクショ・画像) | haiku(並列) | `content/images/column/{slug}/` + 素材台帳 |
 | 3 | 初稿執筆 | sonnet | `content/column/{slug}.md`(図版はプレースホルダ) |
 | 4 | 図版生成 | **opus** | SVG / drawio + 本文への埋め込み |
-| 5 | humanizeリライト | sonnet | リライト版本文 |
+| 5 | humanizeリライトと仕上げ | sonnet | リライト版本文 |
 | 6 | 機械チェック | — | `python3 scripts/check-column.py` |
 | 7 | レビュー担当者レビュー | レビュー担当者 | PR単位 |
 | 8 | 自動公開 | GitHub Actions | 人手ゼロ |
+
+Stage 6 の前に `humanize-column.md` の「Stage 5 の仕上げ」に従って `/humanizer-pass` を2周当てる。
 
 各Stageの詳細な入出力仕様は `pipeline-v3.md` を読むこと。
 
