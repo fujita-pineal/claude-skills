@@ -10,7 +10,7 @@
 - 検収（verify）: 生成物を意図・形式・事実・受け手の4層でチェックする手順
 - 日本語技術文章（japanese-tech-writing）: 技術文書・記事の文章規範と機械チェック
 - SEOコラム量産（seo-column）: 記事の設計から執筆・図版・機械チェック・公開までのパイプライン
-- Gemini 書き換え（gemini-rewrite）: Gemini が書き、Claude が原文と意味照合して指摘を戻すループで、記事の文体を人が書いたものへ寄せる
+- Gemini 書き換え（gemini-rewrite）: Gemini が書き、Claude が原文と意味照合して指摘を戻すループで、記事の文体を人が書いたものへ寄せる。出力は採用が既定で、戻す理由を5つに絞っている
 - 公開前の仕上げ（humanizer-pass）: 公開されている日本語の推敲ルールを実行時に取得して2周当て、差分検査のあとで採否を決める
 
 ## 収録内容
@@ -26,9 +26,11 @@
 | `skills/seo-column/SKILL.md` | SEOコラム量産パイプラインの実行手順 | 新規記事執筆・図版追加・humanizeリライト時に読む |
 | `skills/seo-column/docs/` | パイプライン定義・文体ガイド・図版設計・humanize適応表・DLサンプル制作の各正本 | `SKILL.md` から参照される |
 | `skills/seo-column/scripts/` | frontmatter・文字数・リンク・禁止表現の機械チェック一式 | `python3 check-column.py` 等 |
-| `skills/gemini-rewrite/SKILL.md` | Gemini 書き換えの手順（平文モード・記事モード） | 「geminiで書き直して」「geminiループ回して」で読む |
-| `skills/gemini-rewrite/scripts/gemini_rewrite.py` | 平文1本を Gemini に書き直させる | `printf '%s' "$DRAFT" \| python3 gemini_rewrite.py --brief "..."` |
+| `skills/gemini-rewrite/SKILL.md` | Gemini 書き換えの手順（平文モード・参照ページモード・記事モード） | 「geminiで書き直して」「geminiループ回して」で読む |
+| `skills/gemini-rewrite/scripts/gemini_rewrite.py` | 平文1本を Gemini に書き直させる（`--minimal` で最小改稿） | `printf '%s' "$DRAFT" \| python3 gemini_rewrite.py --brief "..."` |
+| `skills/gemini-rewrite/scripts/html_rewrite.py` | HTML 断片の参照ページを最小改稿し、タグ・数値・文体を機械検査する | `python3 html_rewrite.py <pages> <outdir>` |
 | `skills/gemini-rewrite/scripts/article_loop.py` | Markdown 記事を節ごとに書き換え、校閲モデルの指摘を戻すループ | `python3 article_loop.py <article.md> <outdir> --rounds 3` |
+| `skills/gemini-rewrite/scripts/adopt.py` | 記事モードの出力を原文に当てる。戻す片だけを理由つきで指定する | `python3 adopt.py list <原文.md> <final.md>` / `python3 adopt.py apply <原文.md> <final.md> <out.md> --revert 3:fact` |
 | `skills/humanizer-pass/SKILL.md` | 公開前の推敲の手順と subagent への指示 | 「humanizer」「推敲ルールを当てて」で読む |
 | `skills/humanizer-pass/scripts/fetch-rules.sh` | 推敲ルールの取得と版の照合 | `bash fetch-rules.sh <保存先>` |
 | `skills/humanizer-pass/scripts/guard.py` | 推敲の前後で、変えてはいけない部分の変更を検出する | `python3 guard.py <前の版> <後の版> --protect-after "<CTA の冒頭文>"` |
@@ -107,6 +109,27 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 
 `check-column.py` の `FORBIDDEN` / `FORBIDDEN_WORD` はサンプル値。自分の運用に合わせて、既公開記事に無い実在クライアント名や引用禁止の架空企業名に置き換えて使う。
 
+### gemini-rewrite（Gemini 書き換え）
+
+書き手を Gemini、校閲を Claude に分ける。記事モードは h2 節ごとに「Gemini 書き換え → 機械チェック + 意味照合 → 指摘を戻して再書き換え」を最大3周回し、`final.md` を出す。意味照合は実害のある差だけを指摘する緩い設定にしてある。厳しくすると原文に引き戻されて文体が変わらない。
+
+- 頼み方の使い分け
+  - Claude が組み立てた荒い下書きには全面書き直しを頼む
+  - 人が書いて形になっている文には最小改稿を頼む。全面書き直しを頼むと、壊れていない文まで書き換わる
+- 漢語化の抑止
+  - 生成の指示に「和語を漢語に置き換えない」を入れている
+  - 機械チェックが地の文の漢字の比率を原文と比べ、2ポイント以上増えたら差し戻す
+- 適用
+  - `adopt.py` で出力を原文に当てる。既定は全片の採用
+  - 戻す理由は `fact`、`dict5`、`tone`、`kango`、`keep` の5つだけ。「原文の言い回しの方が好き」は理由にしない
+- 参照ページ
+  - HTML 断片は `html_rewrite.py` で最小改稿する。校閲モデルは使わず、タグ列・数値・リンク・文体を機械検査する
+- 設定
+  - `GEMINI_API_KEY` を環境変数に入れる。依存ライブラリはない
+  - 書き手の立場は `--persona`、禁止語は `--banned`、校閲コマンドは `REWRITE_CHECKER_CMD` で差し替える
+
+詳細は `skills/gemini-rewrite/SKILL.md`。
+
 ### humanizer-pass（公開前の仕上げ）
 
 推敲ルール（https://imoz.jp/humanizer.ja.txt）を実行時に取得し、sha256 で確認済みの版と照合してから使う。
@@ -126,6 +149,7 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 - consulting-pptx-skill（`gozen3ji/consulting-pptx-skill`、MIT）との突合結果をまとめた対応表は、社内の意思決定文脈に依存する記述が多いため非収録。突合で追加した項目自体は `house-rules.md`・`document-tone-rules.md` にそのまま反映済み
 - SEOコラムの `outline.md`（進行管理表）、`link-matrix.md`（内部リンク表）、`primary-sources.md`（一次情報バンク）は案件固有の内容が濃いテーブルのため非収録。ファイルの役割は `skills/seo-column/SKILL.md` に一文で残している
 - クライアント企業名・個人名は、実在の固有名詞から汎化した表現（「製造業A社」「レビュー担当者」等）に置き換えている。ルールの判定ロジック・ID・辞書・閾値・沿革の構造は変更していない
+- `gemini-rewrite` は、書き手の立場を `--persona` で渡す形にし、API キーを環境変数だけから読む。実測の数値は残し、対象の記事名とサイト名は伏せている
 - `humanizer-pass` が使う推敲ルールの本文は、配布元にライセンスの記載がないので収録していない。実行時に配布元から取得する
 
 ## ライセンス
@@ -139,7 +163,3 @@ MIT License。詳細は `LICENSE` を参照。
 ## 出典
 
 株式会社ピネアル CTO 藤田拳が、コーポレートサイト（https://pineal.co.jp/column/）の執筆に使用しているスキルの公開版。
-
-### gemini-rewrite（Gemini 書き換え）
-
-書き手を Gemini、校閲を Claude に分ける。記事モードは h2 節ごとに「Gemini 書き換え → 機械チェック + 意味照合 → 指摘を戻して再書き換え」を最大3周回し、`final.md` を出す。意味照合は実害のある差だけを指摘する緩い設定にしてある。厳しくすると原文に引き戻されて文体が変わらない。詳細は `skills/gemini-rewrite/SKILL.md`。
