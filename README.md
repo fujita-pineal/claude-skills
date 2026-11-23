@@ -158,6 +158,8 @@ MIT License。詳細は `LICENSE` を参照。
 
 `skills/japanese-tech-writing/scripts/` の一部ファイルは coji/natural-japanese（v1.5.0、MIT License）を無改変で含む。取り込み範囲とバージョンは `skills/japanese-tech-writing/scripts/UPSTREAM.md` を参照。
 
+`skills/japanese-tech-writing/SKILL.md` の検出項目のうち6つは、cursor/plugins の pstack にある unslop（MIT License、Copyright (c) 2026 Lauren Tan）を日本語の文章向けに書き直したもの。許諾文は `skills/japanese-tech-writing/scripts/LICENSE-pstack`、項目の対応は同じ `UPSTREAM.md` を参照。
+
 `skills/humanizer-pass` が実行時に取得する推敲ルールは、本リポジトリの MIT License の対象ではない。
 
 ## 出典
