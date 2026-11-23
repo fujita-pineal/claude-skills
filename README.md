@@ -22,7 +22,7 @@
 | `skills/verify/house-rules.md` | 検収チェックリストH1〜H8の正本 | `SKILL.md` のV1から参照される |
 | `skills/verify/pptx_jp_wrap_check.py` | PPTXの日本語折り返し崩れの検査 | `python3 pptx_jp_wrap_check.py <file.pptx>` |
 | `skills/japanese-tech-writing/SKILL.md` | 日本語技術文章の文章規範 | 技術文書・記事の執筆時に読む |
-| `skills/japanese-tech-writing/scripts/njlint.sh` | 禁止語・翻訳調・無生物主語などの機械検査 | `njlint.sh --mode slide <file>` / `njlint.sh --mode prose --genre tech <file>` |
+| `skills/japanese-tech-writing/scripts/njlint.sh` | 禁止語・翻訳調・無生物主語・比喩動詞・締めの定型句などの機械検査 | `njlint.sh --mode slide <file>` / `njlint.sh --mode prose --genre tech <file>` |
 | `skills/seo-column/SKILL.md` | SEOコラム量産パイプラインの実行手順 | 新規記事執筆・図版追加・humanizeリライト時に読む |
 | `skills/seo-column/docs/` | パイプライン定義・文体ガイド・図版設計・humanize適応表・DLサンプル制作の各正本 | `SKILL.md` から参照される |
 | `skills/seo-column/scripts/` | frontmatter・文字数・リンク・禁止表現の機械チェック一式 | `python3 check-column.py` 等 |
@@ -78,6 +78,9 @@ skills/japanese-tech-writing/scripts/njlint.sh --mode prose --genre tech <file> 
 skills/japanese-tech-writing/scripts/njlint.sh --mode prose --genre essay <file>  # 文章: エッセイ・note
 skills/japanese-tech-writing/scripts/njlint.sh --mode prose --genre business <file> # 文章: レポート・議事録・企画書
 ```
+
+同じ対象に nanaism/yomiyasu の lint も掛け、比喩動詞と締めの定型句の指摘を「比喩動詞と定型句」の節に分けて出す。
+運用側の規約と衝突する検出は `njlint_report.py` で落としており、落とした理由は `references/yomiyasu-overlay.md` に書いてある。
 
 検出結果はFailではなく要確認として扱い、直すか残すかを文脈で判断する。
 
@@ -149,6 +152,7 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 - consulting-pptx-skill（`gozen3ji/consulting-pptx-skill`、MIT）との突合結果をまとめた対応表は、社内の意思決定文脈に依存する記述が多いため非収録。突合で追加した項目自体は `house-rules.md`・`document-tone-rules.md` にそのまま反映済み
 - SEOコラムの `outline.md`（進行管理表）、`link-matrix.md`（内部リンク表）、`primary-sources.md`（一次情報バンク）は案件固有の内容が濃いテーブルのため非収録。ファイルの役割は `skills/seo-column/SKILL.md` に一文で残している
 - クライアント企業名・個人名は、実在の固有名詞から汎化した表現（「製造業A社」「レビュー担当者」等）に置き換えている。ルールの判定ロジック・ID・辞書・閾値・沿革の構造は変更していない
+- `japanese-tech-writing` は、文体ルールの参照先を本リポジトリの `rules/document-tone-rules.md` 1本にしている。社内で併用している別スキルへの参照は外した
 - `gemini-rewrite` は、書き手の立場を `--persona` で渡す形にし、API キーを環境変数だけから読む。実測の数値は残し、対象の記事名とサイト名は伏せている
 - `humanizer-pass` が使う推敲ルールの本文は、配布元にライセンスの記載がないので収録していない。実行時に配布元から取得する
 
@@ -157,6 +161,10 @@ python3 skills/seo-column/scripts/test-check-link-matrix.py # check-link-matrix.
 MIT License。詳細は `LICENSE` を参照。
 
 `skills/japanese-tech-writing/scripts/` の一部ファイルは coji/natural-japanese（v1.5.0、MIT License）を無改変で含む。取り込み範囲とバージョンは `skills/japanese-tech-writing/scripts/UPSTREAM.md` を参照。
+
+同じディレクトリの `yomiyasu_lint.py` と `markdown_visibility.py` は、nanaism/yomiyasu（v3.1.0、MIT License、Copyright (c) 2026 nanaism）の無改変のコピー。許諾文は `LICENSE-yomiyasu`、同梱の Unicode 由来データの許諾文は `LICENSE-yomiyasu-unicode` にある。
+
+`skills/japanese-tech-writing/SKILL.md` は k16shikano の gist（japanese-tech-writing、Unlicense）を参照元にし、追加行を選んで統合している。採った行と採らなかった行は同じ `UPSTREAM.md` を参照。
 
 `skills/japanese-tech-writing/SKILL.md` の検出項目のうち6つは、cursor/plugins の pstack にある unslop（MIT License、Copyright (c) 2026 Lauren Tan）を日本語の文章向けに書き直したもの。許諾文は `skills/japanese-tech-writing/scripts/LICENSE-pstack`、項目の対応は同じ `UPSTREAM.md` を参照。
 
