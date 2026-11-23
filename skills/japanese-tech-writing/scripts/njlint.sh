@@ -7,10 +7,12 @@
 # 資料は断片テキストの集合なので、文書統計の検出器は意味を成さず偽陽性しか出ません。
 # 文単位で決定的に効く検出器と、読解負荷レーンだけを残します。
 #
+# 同じ対象に yomiyasu_lint.py も掛け、比喩動詞と定型句の指摘を別の節に出します。
+#
 # findings は Fail ではなく「要確認」です。直すか残すかは文脈で判断してください。
 # 判定の正本は ~/.claude/rules/document-tone-rules.md と、このスキルの SKILL.md です。
 # ベンダリング元と、正本による打ち消しは UPSTREAM.md と
-# ../references/natural-japanese-overlay.md を参照してください。
+# ../references/natural-japanese-overlay.md、../references/yomiyasu-overlay.md を参照してください。
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,7 +22,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)  MODE="${2:-}"  ; shift 2 ;;
     --genre) GENRE="${2:-}" ; shift 2 ;;
-    -h|--help) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ; exit 0 ;;
+    -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ; exit 0 ;;
     -*) echo "不明なオプション: $1" >&2 ; exit 1 ;;
     *)  FILE="$1" ; shift ;;
   esac
